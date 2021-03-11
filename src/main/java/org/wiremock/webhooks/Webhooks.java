@@ -59,11 +59,14 @@ public class Webhooks extends PostServeAction {
     public void doAction(final ServeEvent serveEvent, final Admin admin, final Parameters parameters) {
         final Notifier notifier = notifier();
 
+        notifier.info("doAction on Webhooks");
+
         WebhookDefinition definition = parameters.as(WebhookDefinition.class);
         for (WebhookTransformer transformer: transformers) {
             definition = transformer.transform(serveEvent, definition);
         }
 
+        notifier.info("Delay in seconds is " + definition.getDelayInSeconds());
         Long delayInSeconds = 
             definition.getDelayInSeconds() == null || definition.getDelayInSeconds().isEmpty()
             ? 0L
@@ -71,9 +74,10 @@ public class Webhooks extends PostServeAction {
 
         HttpUriRequest request = buildRequest(definition);
 
+        notifier.info("Scheduling...");
         scheduler.schedule(
             (Runnable)(new WebhookRunner(definition, request, this.httpClient, notifier)),
-            delayInSeconds,
+            delayInSeconds.longValue(),
             SECONDS
         );
     }
@@ -118,6 +122,7 @@ class WebhookRunner implements Runnable {
 
     @Override
     public void run() {
+        this.notifier.info("Running WebhookRunner");
         try {
             HttpResponse response = this.httpClient.execute(this.request);
             this.notifier.info(
@@ -129,6 +134,7 @@ class WebhookRunner implements Runnable {
                 )
             );
         } catch (IOException e) {
+            this.notifier.info("Error: " + e.getMessage());
             throwUnchecked(e);
         }
     }
