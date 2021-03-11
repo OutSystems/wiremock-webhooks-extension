@@ -1,10 +1,12 @@
 # How to compile this module
 
-1. Install JDK 1.7 and add it to the classpath
+
+## Prerequirements
+1. Install JDK 1.7
 2. Install Gradle 4.8.1
 
 
-Define the following variables:
+## Define the following variables
 
 ```
 export JAVA_HOME=<the Java 1.7 SDK path>
@@ -13,7 +15,7 @@ export PATH=$JAVA_HOME/bin:$GRADLE_PATH/bin:$PATH
 
 ```
 
-Test the versions
+## Test the versions
 
 ```
 $ java -version
@@ -37,7 +39,7 @@ JVM:          1.7.0_80 (Oracle Corporation 24.80-b11)
 OS:           Linux 5.4.0-66-generic amd64
 ```
 
-To build run:
+## Build run:
 
 ```
 gradle build
