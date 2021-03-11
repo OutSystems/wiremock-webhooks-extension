@@ -43,11 +43,11 @@ repositories {
 }
 
 def versions = [
-        wiremock: '2.21.0'
+        wiremock: '2.27.2'
 ]
 
 dependencies {
-    compile "com.github.tomakehurst:wiremock:${versions.wiremock}"
+    compile "com.github.tomakehurst:wiremock-standalone:${versions.wiremock}"
 
     testCompile 'junit:junit:4.12'
     testCompile "org.hamcrest:hamcrest-all:1.3"

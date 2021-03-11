@@ -7,12 +7,12 @@ import com.github.tomakehurst.wiremock.extension.PostServeAction;
 import com.github.tomakehurst.wiremock.http.HttpClientFactory;
 import com.github.tomakehurst.wiremock.http.HttpHeader;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.util.EntityUtils;
+import wiremock.org.apache.http.HttpResponse;
+import wiremock.org.apache.http.client.HttpClient;
+import wiremock.org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
+import wiremock.org.apache.http.client.methods.HttpUriRequest;
+import wiremock.org.apache.http.entity.ByteArrayEntity;
+import wiremock.org.apache.http.util.EntityUtils;
 import org.wiremock.webhooks.interceptors.WebhookTransformer;
 
 import java.io.IOException;
@@ -59,32 +59,21 @@ public class Webhooks extends PostServeAction {
     public void doAction(final ServeEvent serveEvent, final Admin admin, final Parameters parameters) {
         final Notifier notifier = notifier();
 
-        scheduler.schedule(
-            new Runnable() {
-                @Override
-                public void run() {
-                    WebhookDefinition definition = parameters.as(WebhookDefinition.class);
-                    for (WebhookTransformer transformer: transformers) {
-                        definition = transformer.transform(serveEvent, definition);
-                    }
-                    HttpUriRequest request = buildRequest(definition);
+        WebhookDefinition definition = parameters.as(WebhookDefinition.class);
+        for (WebhookTransformer transformer: transformers) {
+            definition = transformer.transform(serveEvent, definition);
+        }
 
-                    try {
-                        HttpResponse response = httpClient.execute(request);
-                        notifier.info(
-                            String.format("Webhook %s request to %s returned status %s\n\n%s",
-                                definition.getMethod(),
-                                definition.getUrl(),
-                                response.getStatusLine(),
-                                EntityUtils.toString(response.getEntity())
-                            )
-                        );
-                    } catch (IOException e) {
-                        throwUnchecked(e);
-                    }
-                }
-            },
-            0L,
+        Long delayInSeconds = 
+            definition.getDelayInSeconds() == null || definition.getDelayInSeconds().isEmpty()
+            ? 0L
+            : Long.valueOf(definition.getDelayInSeconds());
+
+        HttpUriRequest request = buildRequest(definition);
+
+        scheduler.schedule(
+            (Runnable)(new WebhookRunner(definition, request, this.httpClient, notifier)),
+            delayInSeconds,
             SECONDS
         );
     }
@@ -109,5 +98,38 @@ public class Webhooks extends PostServeAction {
 
     public static WebhookDefinition webhook() {
         return new WebhookDefinition();
+    }
+}
+
+
+class WebhookRunner implements Runnable {
+
+    private WebhookDefinition definition;
+    private Notifier notifier;
+    private HttpClient httpClient;
+    private HttpUriRequest request;
+
+    public WebhookRunner(WebhookDefinition definition, HttpUriRequest request, HttpClient httpClient, Notifier notifier) {
+        this.definition = definition;
+        this.request = request;
+        this.httpClient = httpClient;
+        this.notifier = notifier;
+    }
+
+    @Override
+    public void run() {
+        try {
+            HttpResponse response = this.httpClient.execute(this.request);
+            this.notifier.info(
+                String.format("Webhook %s request to %s returned status %s\n\n%s",
+                    this.definition.getMethod(),
+                    this.definition.getUrl(),
+                    response.getStatusLine(),
+                    EntityUtils.toString(response.getEntity())
+                )
+            );
+        } catch (IOException e) {
+            throwUnchecked(e);
+        }
     }
 }
