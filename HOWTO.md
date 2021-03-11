@@ -1,4 +1,4 @@
-# How to compile this modules
+# How to compile this module
 
 1. Install JDK 1.7 and add it to the classpath
 2. Install Gradle 4.8.1
