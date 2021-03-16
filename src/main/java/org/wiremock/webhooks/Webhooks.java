@@ -61,24 +61,31 @@ public class Webhooks extends PostServeAction {
     public void doAction(final ServeEvent serveEvent, final Admin admin, final Parameters parameters) {
         final Notifier notifier = notifier();
 
-        notifier.info("doAction on Webhooks: " + serveEvent.getResponse().getBodyAsString());        
+        notifier.info("doAction on Webhooks: " + serveEvent.getResponse().getBodyAsString());
 
         try {
             WebhookDefinition definition = parameters.as(WebhookDefinition.class);
 
-            // Adds the custome transformers
-            notifier.info("Set request id: " + definition.getSetRequestId());
-            if (definition.getSetRequestId() != null && definition.getSetRequestId().equals("true")) {
-                notifier.info("Adding AddRequestIdWebhookTransformer"); 
-                transformers.add(new AddRequestIdWebhookTransformer(notifier));
+            // Adds the custom transformers
+            if (transformers.size() == 0) {
+                notifier.info("Adding custom transformers");
+
+                notifier.info("Set request id: " + definition.getSetRequestId());
+                if (definition.getSetRequestId() != null && definition.getSetRequestId().equals("true")) {
+                    notifier.info("Adding AddRequestIdWebhookTransformer"); 
+                    transformers.add(new AddRequestIdWebhookTransformer(notifier));
+                }
+
+                notifier.info("Use Cognito Authentication: " + definition.getUseCognitoAuthentication());
+                if (definition.getSetRequestId() != null && definition.getSetRequestId().equals("true")) {
+                    notifier.info("Adding CognitoHttpHeaderWebhookTransformer"); 
+                    transformers.add(new CognitoHttpHeaderWebhookTransformer(notifier));
+                }
+            } else {
+                notifier.info("Custom transformers already added");
             }
 
-            notifier.info("Use Cognito Authentication: " + definition.getUseCognitoAuthentication());
-            if (definition.getSetRequestId() != null && definition.getSetRequestId().equals("true")) {
-                notifier.info("Adding CognitoHttpHeaderWebhookTransformer"); 
-                transformers.add(new CognitoHttpHeaderWebhookTransformer(notifier));
-            }
-
+            // Runs the custom transformers
             for (WebhookTransformer transformer: transformers) {
                 notifier.info("Executing transformer...");
                 definition = transformer.transform(serveEvent, definition);

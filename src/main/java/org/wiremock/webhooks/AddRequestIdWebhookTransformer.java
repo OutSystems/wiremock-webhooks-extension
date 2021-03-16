@@ -19,12 +19,14 @@ public class AddRequestIdWebhookTransformer implements WebhookTransformer {
         this.notifier.info("Running the AddRequestIdWebhookTransformer");
 
         String body = serveEvent.getResponse().getBodyAsString();
-        this.notifier.info("Body = " + body);
+        this.notifier.info("Response body = " + body);
 
         String requestId = JsonPath.read(body, "$.request_id");
         this.notifier.info("RequestId = " + requestId);
 
         String finalBody = webhookDefinition.getBody().replace("{{request_id}}", requestId);
+
+        this.notifier.info("Callback body = " + finalBody);
   
         return webhookDefinition.withBody(finalBody);
     }
