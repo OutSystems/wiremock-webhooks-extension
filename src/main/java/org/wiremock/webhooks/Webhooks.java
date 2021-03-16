@@ -61,36 +61,39 @@ public class Webhooks extends PostServeAction {
     public void doAction(final ServeEvent serveEvent, final Admin admin, final Parameters parameters) {
         final Notifier notifier = notifier();
 
+        List<WebhookTransformer> localTransformers = new ArrayList<WebhookTransformer>();
+
         notifier.info("doAction on Webhooks: " + serveEvent.getResponse().getBodyAsString());
 
         try {
             WebhookDefinition definition = parameters.as(WebhookDefinition.class);
 
             // Adds the custom transformers
-            if (transformers.size() == 0) {
-                notifier.info("Adding custom transformers");
+            notifier.info("Adding custom transformers");
+            notifier.info("Set request id: " + definition.getSetRequestId());
+            if (definition.getSetRequestId() != null && definition.getSetRequestId().equals("true")) {
+                notifier.info("Adding AddRequestIdWebhookTransformer"); 
+                localTransformers.add(new AddRequestIdWebhookTransformer(notifier));
+            }
 
-                notifier.info("Set request id: " + definition.getSetRequestId());
-                if (definition.getSetRequestId() != null && definition.getSetRequestId().equals("true")) {
-                    notifier.info("Adding AddRequestIdWebhookTransformer"); 
-                    transformers.add(new AddRequestIdWebhookTransformer(notifier));
-                }
-
-                notifier.info("Use Cognito Authentication: " + definition.getUseCognitoAuthentication());
-                if (definition.getSetRequestId() != null && definition.getSetRequestId().equals("true")) {
-                    notifier.info("Adding CognitoHttpHeaderWebhookTransformer"); 
-                    transformers.add(new CognitoHttpHeaderWebhookTransformer(notifier));
-                }
-            } else {
-                notifier.info("Custom transformers already added");
+            notifier.info("Use Cognito Authentication: " + definition.getUseCognitoAuthentication());
+            if (definition.getUseCognitoAuthentication() != null && definition.getUseCognitoAuthentication().equals("true")) {
+                notifier.info("Adding CognitoHttpHeaderWebhookTransformer"); 
+                localTransformers.add(new CognitoHttpHeaderWebhookTransformer(notifier));
             }
 
             // Runs the custom transformers
+            for (WebhookTransformer transformer: localTransformers) {
+                notifier.info("Executing custom transformer...");
+                definition = transformer.transform(serveEvent, definition);
+            }
+
+            // Runs the transformers (legacy code)
             for (WebhookTransformer transformer: transformers) {
                 notifier.info("Executing transformer...");
                 definition = transformer.transform(serveEvent, definition);
             }
-
+            
             // Handles the delay in seconds
             notifier.info("Delay in seconds is " + definition.getDelayInSeconds());
             Long delayInSeconds = 
