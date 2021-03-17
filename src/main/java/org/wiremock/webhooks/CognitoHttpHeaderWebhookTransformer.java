@@ -16,6 +16,7 @@ import wiremock.org.apache.http.entity.ContentType;
 import wiremock.org.apache.http.entity.StringEntity;
 import wiremock.org.apache.http.Header;
 import wiremock.org.apache.http.HttpResponse;
+import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -31,15 +32,37 @@ public class CognitoHttpHeaderWebhookTransformer implements WebhookTransformer {
 
     @Override
     public WebhookDefinition transform(ServeEvent serveEvent, WebhookDefinition webhookDefinition) {
-        return webhookDefinition.withHeader("Authorization", this.getAccessToken());
+        return webhookDefinition.withHeader("Authorization", this.getAccessToken(serveEvent));
     }
 
-    private String getAccessToken() {
+    private String getAccessToken(ServeEvent serveEvent) {
         try {
+
+            LoggedRequest loggedRequest = serveEvent.getRequest();
+            this.notifier.info("url = " + loggedRequest.getUrl());
+            this.notifier.info("absoluteUrl = " + loggedRequest.getAbsoluteUrl());
+
+            String suffix = loggedRequest.getUrl().split("\\/")[1].toUpperCase();
+            this.notifier.info("suffix to use for callback = " + suffix);
+
             // Reads cognito configurations from environment variables
-            String cognitoUrl = System.getenv("COGNITO_URL");
-            String cognitoClientId = System.getenv("COGNITO_CLIENT_ID");
-            String cognitoClientSecret = System.getenv("COGNITO_CLIENT_SECRET"); 
+            String cognitoUrl = System.getenv("COGNITO_URL_" + suffix);
+            String cognitoClientId = System.getenv("COGNITO_CLIENT_ID_" + suffix);
+            String cognitoClientSecret = System.getenv("COGNITO_CLIENT_SECRET_" + suffix);
+
+            // Fallback in case the prefix variables are not defined
+            if (cognitoUrl == null || cognitoUrl.length() == 0) {
+                this.notifier.info("cognitoUrl not defined, using fallback");
+                cognitoUrl = System.getenv("COGNITO_URL");
+            }
+            if (cognitoClientId == null || cognitoClientId.length() == 0) {
+                this.notifier.info("cognitoClientId not defined, using fallback");
+                cognitoClientId = System.getenv("COGNITO_CLIENT_ID");
+            }
+            if (cognitoClientSecret == null || cognitoUrl.length() == 0) {
+                this.notifier.info("cognitoClientSecret not defined, using fallback");
+                cognitoClientSecret = System.getenv("COGNITO_CLIENT_SECRET");
+            }
 
             this.notifier.info("COGNITO_URL = " + cognitoUrl);
             this.notifier.info("COGNITO_CLIENT_ID = " + cognitoClientId);
