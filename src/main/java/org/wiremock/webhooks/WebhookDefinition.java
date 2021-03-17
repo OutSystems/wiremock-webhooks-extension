@@ -20,6 +20,8 @@ public class WebhookDefinition {
     private List<HttpHeader> headers;
     private Body body = Body.none();
     private String delayInSeconds;
+    private String setRequestId;
+    private String useCognitoAuthentication;
 
     @JsonCreator
     public WebhookDefinition(@JsonProperty("method") RequestMethod method,
@@ -27,13 +29,17 @@ public class WebhookDefinition {
                              @JsonProperty("headers") HttpHeaders headers,
                              @JsonProperty("body") String body,
                              @JsonProperty("base64Body") String base64Body,
-                             @JsonProperty("delayInSeconds") String delayInSeconds) {
+                             @JsonProperty("delayInSeconds") String delayInSeconds,
+                             @JsonProperty("setRequestId") String setRequestId,
+                             @JsonProperty("useCognitoAuthentication") String useCognitoAuthentication) {
         this.method = method;
         this.url = url;
         this.headers = newArrayList(headers.all());
         this.body = Body.fromOneOf(null, body, null, base64Body);
 
         this.delayInSeconds = delayInSeconds;
+        this.setRequestId = setRequestId != null ? setRequestId : "false";
+        this.useCognitoAuthentication = useCognitoAuthentication != null ? useCognitoAuthentication : "false";
     }
 
     public WebhookDefinition() {
@@ -71,6 +77,14 @@ public class WebhookDefinition {
 
     public String getDelayInSeconds() {
         return this.delayInSeconds;
+    }
+
+    public String getSetRequestId() {
+        return this.setRequestId;
+    }
+
+    public String getUseCognitoAuthentication() {
+        return this.useCognitoAuthentication;
     }
 
     public WebhookDefinition withUrl(URI url) {
@@ -112,4 +126,15 @@ public class WebhookDefinition {
         return this;
     }
 
+    public WebhookDefinition withSetRequestId(String setRequestId) {
+        this.setRequestId = setRequestId;
+        return this;
+    }
+
+    public WebhookDefinition withUseCognitoAuthentication(String useCognitoAuthentication) {
+        this.useCognitoAuthentication = useCognitoAuthentication;
+        return this;
+    }
+
 }
+

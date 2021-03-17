@@ -14,6 +14,8 @@ import wiremock.org.apache.http.client.methods.HttpUriRequest;
 import wiremock.org.apache.http.entity.ByteArrayEntity;
 import wiremock.org.apache.http.util.EntityUtils;
 import org.wiremock.webhooks.interceptors.WebhookTransformer;
+import org.wiremock.webhooks.CognitoHttpHeaderWebhookTransformer;
+import org.wiremock.webhooks.AddRequestIdWebhookTransformer;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -59,27 +61,58 @@ public class Webhooks extends PostServeAction {
     public void doAction(final ServeEvent serveEvent, final Admin admin, final Parameters parameters) {
         final Notifier notifier = notifier();
 
-        notifier.info("doAction on Webhooks");
+        List<WebhookTransformer> localTransformers = new ArrayList<WebhookTransformer>();
 
-        WebhookDefinition definition = parameters.as(WebhookDefinition.class);
-        for (WebhookTransformer transformer: transformers) {
-            definition = transformer.transform(serveEvent, definition);
+        notifier.info("doAction on Webhooks: " + serveEvent.getResponse().getBodyAsString());
+
+        try {
+            WebhookDefinition definition = parameters.as(WebhookDefinition.class);
+
+            // Adds the custom transformers
+            notifier.info("Adding custom transformers");
+            notifier.info("Set request id: " + definition.getSetRequestId());
+            if (definition.getSetRequestId() != null && definition.getSetRequestId().equals("true")) {
+                notifier.info("Adding AddRequestIdWebhookTransformer"); 
+                localTransformers.add(new AddRequestIdWebhookTransformer(notifier));
+            }
+
+            notifier.info("Use Cognito Authentication: " + definition.getUseCognitoAuthentication());
+            if (definition.getUseCognitoAuthentication() != null && definition.getUseCognitoAuthentication().equals("true")) {
+                notifier.info("Adding CognitoHttpHeaderWebhookTransformer"); 
+                localTransformers.add(new CognitoHttpHeaderWebhookTransformer(notifier));
+            }
+
+            // Runs the custom transformers
+            for (WebhookTransformer transformer: localTransformers) {
+                notifier.info("Executing custom transformer...");
+                definition = transformer.transform(serveEvent, definition);
+            }
+
+            // Runs the transformers (legacy code)
+            for (WebhookTransformer transformer: transformers) {
+                notifier.info("Executing transformer...");
+                definition = transformer.transform(serveEvent, definition);
+            }
+            
+            // Handles the delay in seconds
+            notifier.info("Delay in seconds is " + definition.getDelayInSeconds());
+            Long delayInSeconds = 
+                definition.getDelayInSeconds() == null || definition.getDelayInSeconds().isEmpty()
+                ? 0L
+                : Long.valueOf(definition.getDelayInSeconds());
+
+            // Executes the webhook
+            HttpUriRequest request = buildRequest(definition);
+            notifier.info("Scheduling...");
+            scheduler.schedule(
+                (Runnable)(new WebhookRunner(definition, request, this.httpClient, notifier)),
+                delayInSeconds.longValue(),
+                SECONDS
+            );
+        } catch (Exception e) {
+            notifier.info("Error on Webhooks: " + e.getMessage());
+            throw e;
         }
-
-        notifier.info("Delay in seconds is " + definition.getDelayInSeconds());
-        Long delayInSeconds = 
-            definition.getDelayInSeconds() == null || definition.getDelayInSeconds().isEmpty()
-            ? 0L
-            : Long.valueOf(definition.getDelayInSeconds());
-
-        HttpUriRequest request = buildRequest(definition);
-
-        notifier.info("Scheduling...");
-        scheduler.schedule(
-            (Runnable)(new WebhookRunner(definition, request, this.httpClient, notifier)),
-            delayInSeconds.longValue(),
-            SECONDS
-        );
     }
 
     private static HttpUriRequest buildRequest(WebhookDefinition definition) {
@@ -104,7 +137,6 @@ public class Webhooks extends PostServeAction {
         return new WebhookDefinition();
     }
 }
-
 
 class WebhookRunner implements Runnable {
 
@@ -139,3 +171,5 @@ class WebhookRunner implements Runnable {
         }
     }
 }
+
+
